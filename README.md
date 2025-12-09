@@ -3,7 +3,7 @@
 A graduate-level data science project analyzing food deserts in Chicago using USDA Food Access Atlas, SNAP participation, ACS broadband adoption, and City of Chicago grocery locations. We test five hypotheses on spatial clustering, affordability, income disparity, and digital access, producing geospatial visuals, ML models, and a Digital Barrier Index.
 
 
-## Hypotheses
+## Hypothesis
 
 1. Food deserts cluster in specific geographic areas.
 2. Delivery services improve food access but may not address affordability barriers for low-income populations.
@@ -66,16 +66,6 @@ A graduate-level data science project analyzing food deserts in Chicago using US
   (If you prefer the `h1-*.png` exports already present, update the LaTeX figure paths accordingly.)
 
 
-## Building the report (LaTeX)
-
-From `Final Submission Folder` (cmd.exe):
-
-```cmd
-pdflatex CS418_Fall2025_Report.tex
-bibtex CS418_Fall2025_Report
-pdflatex CS418_Fall2025_Report.tex
-pdflatex CS418_Fall2025_Report.tex
-```
 
 On Overleaf: upload `CS418_Fall2025_Report.tex`, ensure `figs/` is present with exported PNGs; `references.bib` is auto-created by the filecontents block on first compile.
 
@@ -93,10 +83,9 @@ On Overleaf: upload `CS418_Fall2025_Report.tex`, ensure `figs/` is present with 
 - Ensure Census API key is set for broadband pulls (H4/H5).
 - Verify data files exist: Food Access Atlas 2015/2019, SNAP Jan 2015/2019/2025, Grocery store CSV, TIGER/Line shapefiles.
 - Run notebooks H1→H5; export figures to `figs/` with names above.
-- Compile LaTeX as shown.
 
 
-## Contacts / authors
+## Contacts / Members
 
 - Nishita — H1 (spatial clustering)
 - Anand — H2 (affordability models)
@@ -105,9 +94,3 @@ On Overleaf: upload `CS418_Fall2025_Report.tex`, ensure `figs/` is present with 
 - Dhwani — H5 (Digital Barrier Index, SMOTE models)
 
 
-## Known gaps
-
-- Member emails and group name must be filled from presentation.
-- If using alternative figure filenames (e.g., `figs/h1-*.png`), update LaTeX paths accordingly.
-- Large raw data not committed (SNAP Excel, full atlas); obtain from listed sources.
-- Census API key required for broadband pulls.
