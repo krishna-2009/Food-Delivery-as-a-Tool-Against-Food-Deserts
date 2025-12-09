@@ -1,0 +1,334 @@
+% ============================================================
+% Compile locally (cmd.exe):
+%   pdflatex CS418_Fall2025_Report.tex
+%   bibtex   CS418_Fall2025_Report
+%   pdflatex CS418_Fall2025_Report.tex
+%   pdflatex CS418_Fall2025_Report.tex
+% Overleaf: upload this .tex file, references.bib (auto-written below), and figures under figs/.
+% Figures expected paths (upload into Overleaf):
+%   figs/nishita_fig1_heatmaps.png, figs/nishita_fig2_income_poverty.png, figs/nishita_fig3_clusters.png
+%   figs/dhwani_fig1_affordability_scatter.png, figs/dhwani_fig2_corr_heatmap.png, figs/dhwani_fig3_model_roc.png
+%   figs/krishna_fig1_income_change.png, figs/krishna_fig2_ml_comparison.png, figs/krishna_fig3_regression.png
+%   figs/kaushik_fig1_broadband_map.png, figs/kaushik_fig2_logit_odds.png, figs/kaushik_fig3_senior_urban.png
+%   figs/Anand_fig1_corr_heatmap.png, figs/Anand_fig2_barrier_components.png, figs/Anand_fig3_pr_curve.png
+% Data/scripts to upload if available: Grocery store.csv, tl_2020_17_tract.shp (+.dbf/.shx/.prj), notebooks H1–H5.ipynb, any cleaned CSVs.
+% ============================================================
+
+\begin{filecontents*}{references.bib}
+@misc{USDA2019,
+  title        = {Food Access Research Atlas 2019},
+  author       = {{USDA Economic Research Service}},
+  year         = {2019},
+  howpublished = {\url{https://www.ers.usda.gov/data-products/food-access-research-atlas/}},
+  note         = {Accessed 2025-12-08}
+}
+@misc{USDA2015,
+  title        = {Food Access Research Atlas 2015},
+  author       = {{USDA Economic Research Service}},
+  year         = {2015},
+  howpublished = {\url{https://www.ers.usda.gov/data-products/food-access-research-atlas/}},
+  note         = {Accessed 2025-12-08}
+}
+@misc{CensusACS,
+  title        = {American Community Survey 5-year Estimates (Table B28002)},
+  author       = {{U.S. Census Bureau}},
+  year         = {2019},
+  howpublished = {\url{https://api.census.gov/}},
+  note         = {Broadband subscription by census tract}
+}
+@misc{ChicagoGrocery,
+  title        = {Chicago Grocery Store Status Map},
+  author       = {{City of Chicago Data Portal}},
+  year         = {2024},
+  howpublished = {\url{https://data.cityofchicago.org/}},
+  note         = {Operational grocery store locations}
+}
+\end{filecontents*}
+
+\documentclass[11pt]{article}
+\usepackage[useregional]{datetime2}
+% \DTMsetup{tz=-06:00} % removed: tz key not defined for datetime2
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{float}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+\setstretch{1.05}
+
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    {\Large \textbf{Food Delivery as a Tool Against Food Deserts}}\\[0.6cm]
+    {CS418: Introduction to Data Science (Fall 2025)}\\[0.2cm]
+    {Instructor: \textit{Professor Sourav Medya}}\\[0.4cm]
+    
+    \vspace{0.3cm}
+    \begin{tabular}{ll}
+        Nishita Konduru & email: \textit{nkond5@uic.edu} \\
+        Dhwani Auvnish Chande  & email: \textit{dchan35@uic.edu} \\
+        Krishna Riteshkumar Patel & email: \textit{kpate649@uic.edu} \\
+        Kaushik Sanjay Prabhakar & email: \textit{kprab@uic.edu} \\
+        Anand Singh Kushwaha   & email: \textit{akush6@uic.edu} \\
+    \end{tabular}\\[0.6cm]
+    \vfill
+    \vfill
+    \date{8 December 2025}
+\end{titlepage}
+
+\begin{abstract}
+Food access in Chicago remains uneven despite abundant supply. Using USDA Food Access Atlas (2015, 2019), City of Chicago grocery locations, SNAP participation, and ACS broadband data, we test five hypotheses spanning spatial clustering, affordability, income disparity, and digital access. We combine geospatial heat maps, clustering (K-Means), classification (logistic regression, random forest, gradient boosting), and regression for income change and digital barrier prediction. Results show concentrated food deserts on the South/West sides, strong ties between affordability and SNAP intensity, widening income gaps, and statistically significant associations between broadband adoption and food desert likelihood. A digital barrier index plus SMOTE-balanced models improves recall for at-risk tracts.\footnote{Exact metrics follow notebook outputs; figures are referenced for reproducibility.}
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Introduction}
+
+\textbf{Motivation:} Food deserts exacerbate health inequities in major cities. Chicago exhibits persistent pockets of limited access, overlapping with poverty and digital divides.\newline
+
+\textbf{Problem statement:} Identify drivers of food deserts and quantify roles of income, affordability, spatial clustering, and digital access.\newline
+
+\textbf{Hypotheses:}
+\begin{enumerate}[label=H\arabic*.]
+    \item Food deserts cluster in specific geographic areas.
+    \item Delivery services improve food access but may not address affordability barriers for low-income populations.
+    \item Income disparity and food access are linked in Chicago, with widening gaps.
+    \item Broadband adoption gaps, not mere service availability, are the primary digital food access barrier in urban food deserts—exacerbated by poverty and elderly populations.
+    \item Higher digital access barriers are more likely to be food deserts.
+\end{enumerate}
+
+\section{Related Work}
+Prior work connects supermarket exits to income gradients and transit (e.g., \cite{USDA2019,USDA2015}). Digital inequity literature highlights broadband adoption as a constraint on online grocery (\cite{CensusACS}). Urban grocery mapping studies (\cite{ChicagoGrocery}) contextualize spatial clustering.
+
+\section{Data}
+
+\subsection{Data Sources and Acquisition}
+
+Our analysis integrates multiple heterogeneous datasets to comprehensively examine food access in Chicago. Each data source presented unique challenges in acquisition, format conversion, and temporal alignment.
+
+\paragraph{USDA Food Access Research Atlas (2015 \& 2019).}
+The primary dataset for food desert classification comes from the USDA Economic Research Service Food Access Research Atlas \cite{USDA2015,USDA2019}. This tract-level dataset contains 147 features including demographics (population, race/ethnicity composition, age groups), economic indicators (median family income, poverty rates), and food access metrics (low-income and low-access flags at various distance thresholds: 0.5 miles, 1 mile urban, 10 miles, and 20 miles rural). The 2019 atlas covers 72,531 census tracts nationally; filtering for Cook County, Illinois yielded 1,314 tracts. The 2015 atlas provides historical comparison for income trajectory analysis (H3). Critical variables include \texttt{LILATracts\_1And10} (low-income and low-access at 1/10 miles, defining our food desert flag), \texttt{TractSNAP} (SNAP-authorized stores), \texttt{PovertyRate}, \texttt{MedianFamilyIncome}, and demographic shares.
+
+\paragraph{City of Chicago Grocery Store Status Map.}
+The Chicago Data Portal provides operational status of 264 grocery stores as of November 2024 \cite{ChicagoGrocery}. This dataset includes store names, addresses, operational status (open, closed, planned), and geocoded coordinates. Intended for delivery coverage analysis (H2), the dataset was incomplete for historical closure trends needed for hypothesis H5 (whether delivery growth causes store closures). Manual verification revealed that only current operational status was available, not longitudinal closure records from 2015--2025, limiting our ability to test causal effects of online delivery on physical store exits.
+
+\paragraph{SNAP Participation and Issuance Data.}
+Monthly Supplemental Nutrition Assistance Program (SNAP) data for Cook County was obtained from Illinois Department of Human Services administrative records for January 2015, January 2019, and January 2025. Each file contains sub-state region breakdowns with participant counts, household counts, and total monthly issuance dollars. For Cook County specifically, we extracted: January 2025 (882,039 participants, 507,246 households, \$183,991,586 issuance), January 2019 (296,761 participants), and January 2015 (baseline for growth calculation). The 197.2\% growth in SNAP participation from 2019 to 2025 informed affordability projections (H2). SNAP intensity was calculated as (TractSNAP / Pop2010) $\times$ 100 and merged to census tracts via county-level proportional allocation, introducing measurement error since sub-tract SNAP distributions are unavailable.
+
+\paragraph{American Community Survey Broadband Subscription Data.}
+Broadband adoption rates were retrieved from the U.S. Census Bureau's American Community Survey 2019 5-year estimates, Table B28002 (Computer and Internet Use) via Census API \cite{CensusACS}. For each Illinois census tract, we obtained counts of households with and without broadband subscriptions (cable, fiber, DSL, or satellite). Broadband share = (households with subscription) / (total households). Missing or suppressed values (privacy thresholds in low-population tracts) were handled by imputing county median values for 3.1\% of tracts. The API required a valid Census key; missing keys during reproduction hinder replicability (see reproducibility checklist).
+
+\paragraph{TIGER/Line Census Tract Shapefiles.}
+Geospatial boundaries for Illinois census tracts (2020 vintage, \texttt{tl\_2020\_17\_tract.shp}, 9.3 MB) were downloaded from the U.S. Census TIGER/Line repository \cite{CensusTIGER}. The shapefile includes 1,332 Cook County tracts; after merging with the Food Access Atlas via \texttt{GEOID} matching, 1,284 tracts retained valid geometries for geospatial visualization. Coordinate reference system: NAD83 (EPSG:4269). Conversion to GeoJSON format (\texttt{chicago\_fooddeserts\_geo.geojson}) enabled web-based mapping with Folium and Plotly.
+
+\subsection{Data Collection Challenges}
+
+\paragraph{Challenge 1: Missing Online Grocery Delivery Coverage Data.}
+No centralized public dataset exists for ZIP-code or census-tract level delivery coverage from major platforms (Amazon Fresh, Walmart Grocery, Instacart, DoorDash). Automated scraping via Selenium and BeautifulSoup proved unreliable due to bot-prevention measures (CAPTCHA, rate limiting, dynamic JavaScript rendering). Manual data collection was attempted by querying each service's website for 100+ Chicago ZIP codes, but inconsistencies in service area boundaries and frequent coverage changes rendered the data incomplete and unverifiable. Consequently, hypothesis H2 (delivery services and affordability) relies on SNAP intensity and income as proxies for affordability rather than direct delivery pricing or availability metrics.
+
+\paragraph{Challenge 2: Geographic Format Fragmentation.}
+Government datasets use multiple location identifiers: 11-digit GEOID (state-county-tract), FIPS codes, latitude-longitude coordinates, and street addresses. Delivery services operate at ZIP-code granularity. Converting ZIP codes to census tracts using HUD's ZIP-Tract crosswalk introduced spatial uncertainty because ZIPs and tracts have non-overlapping boundaries (one ZIP spans multiple tracts, or vice versa). We adopted tract-level analysis to align with USDA atlas, accepting that within-tract heterogeneity (e.g., affluent blocks adjacent to food deserts) is masked. Geocoding grocery store addresses to tract boundaries used spatial joins in GeoPandas; 2.3\% of stores fell outside Cook County tracts and were excluded.
+
+\paragraph{Challenge 3: Temporal Mismatch Across Datasets.}
+The USDA Food Access Atlas 2019 uses 2010 Census population denominators and 2015--2019 ACS income estimates, while our SNAP data spans 2015--2025 and broadband data reflects 2015--2019 ACS averages. The six-year gap between 2019 atlas and 2025 SNAP complicates causal interpretation: socioeconomic conditions and food environments evolve, but we cannot observe 2025 food desert status. We assume food desert boundaries are relatively stable over 2019--2025 (supported by spatial autocorrelation), but income and SNAP trends may diverge. Inflation-adjusted income change (H3) uses 8\% cumulative CPI (2015--2019) per Bureau of Labor Statistics, introducing approximation error if tract-specific inflation differs.
+
+\paragraph{Challenge 4: Class Imbalance and Missing Values.}
+Only 51 of 1,314 Cook County tracts (3.9\%) are classified as food deserts (\texttt{LILATracts\_1And10 = 1}), creating severe class imbalance for supervised learning. Models trained without class balancing (e.g., standard logistic regression, H1) achieved 97\% accuracy but 0\% recall on food deserts. Mitigation strategies included balanced class weights (Scikit-learn \texttt{class\_weight='balanced'}), SMOTE oversampling (H5), and threshold tuning for precision-recall tradeoffs. Missing values occurred in broadband data (3.1\% of tracts), income (0.8\%), and SNAP (corrected to zero for tracts with unreported stores). Zero-population tracts (N=18) were removed to avoid division-by-zero in rate calculations.
+
+\subsection{Data Cleaning and Preprocessing}
+
+Data cleaning involved six major steps to produce analysis-ready datasets:
+
+\paragraph{Step 1: Tract Filtering and GEOID Standardization.}
+Removed 18 tracts with \texttt{Pop2010 = 0} (uninhabited areas, parks, industrial zones). Standardized \texttt{CensusTract} field to 11-digit string format (\texttt{SSCCCTTTTTT}: state, county, tract) to match TIGER shapefile \texttt{GEOID}. Cross-referenced FIPS codes to ensure consistency; corrected 7 tracts with leading-zero truncation errors in Excel imports.
+
+\paragraph{Step 2: Derived Demographic and Economic Features.}
+Created percentage-based features to normalize by population or household counts:
+\begin{itemize}
+\item \texttt{PctWhite, PctBlack, PctHispanic, PctAsian}: Racial/ethnic composition = (TractRace / Pop2010) $\times$ 100.
+\item \texttt{PctNoVehicle}: Households without vehicle access = (TractHUNV / OHU2010) $\times$ 100.
+\item \texttt{PctSeniors}: Senior population = (TractSeniors / Pop2010) $\times$ 100.
+\item \texttt{SNAPIntensity2019}: SNAP stores per capita = (TractSNAP / Pop2010) $\times$ 100.
+\item \texttt{IncomePovertyRatio}: Median family income divided by poverty rate (in thousands), measuring economic resilience.
+\item \texttt{VulnerabilityIndex}: Combined vulnerable population share = (TractKids + TractSeniors) / Pop2010.
+\end{itemize}
+
+\paragraph{Step 3: SNAP Temporal Projection (H2).}
+Calculated 2019--2025 SNAP growth rate at county level (197.2\% increase). Applied proportional scaling to tract-level 2019 SNAP counts: \texttt{SNAP2025Projected = TractSNAP $\times$ (1 + 1.972)}. Derived \texttt{SNAPIntensity2025} and \texttt{SNAPIntensityChange = SNAPIntensity2025 - SNAPIntensity2019} to capture affordability stress trends. This assumes uniform growth across tracts (likely underestimating heterogeneity in low-income tract uptake).
+
+\paragraph{Step 4: Income Change and Inflation Adjustment (H3).}
+Merged 2015 and 2019 atlas datasets on \texttt{GEOID}. Computed nominal income change: \texttt{IncomeChangeNominal = MedianFamilyIncome2019 - MedianFamilyIncome2015}. Applied 8\% cumulative inflation factor (CPI-U 2015--2019) to 2015 income: \texttt{Income2015Real = MedianFamilyIncome2015 $\times$ 1.08}. Real income change = \texttt{MedianFamilyIncome2019 - Income2015Real}, revealing which tracts experienced purchasing power loss despite nominal gains.
+
+\paragraph{Step 5: Broadband and Digital Barrier Index (H4, H5).}
+Joined ACS B28002 broadband data to tracts via Census API. Computed \texttt{BroadbandShare = HouseholdsWithSubscription / TotalHouseholds}. For H4, derived binary barrier flag: \texttt{DigitalBarrier = 1} if (food desert AND low-income AND BroadbandShare < median). For H5, constructed composite Digital Barrier Index as standardized sum (z-scores):
+\[
+\text{DBI} = -z(\text{BroadbandShare}) + z(\text{PctSeniors}) + z(\text{SNAPIntensity}) + z(\text{PctNoVehicle})
+\]
+Higher DBI indicates compounded digital access barriers (low broadband adoption, elderly population, high SNAP dependence, limited vehicle access). Z-standardization ensures equal weighting across features with different scales.
+
+\paragraph{Step 6: Geospatial Merge and Export.}
+Performed spatial join of cleaned atlas data with TIGER shapefile using GeoPandas: \texttt{chicagogeo = cooktracts.merge(chicago, on='GEOID', how='inner')}. Retained 1,284 tracts with valid geometries (dropped 30 tracts due to GEOID mismatches or null geometries). Exported to GeoJSON for interactive mapping and CSV for ML pipelines. Final dataset: 1,284 rows $\times$ 160 columns (147 original atlas features + 13 derived features).
+
+\subsection{Final Dataset Characteristics}
+
+\paragraph{Summary Statistics.}
+\begin{itemize}
+\item \textbf{Total census tracts (Cook County)}: 1,314 (pre-cleaning), 1,284 (post-cleaning with geometries).
+\item \textbf{Food desert tracts}: 51 (3.9\% prevalence); 223,911 residents in food deserts.
+\item \textbf{Urban tracts}: 1,312 (99.8\%); rural analysis limited.
+\item \textbf{Median family income}: \$83,042 (non-food deserts) vs \$50,475 (food deserts); gap of \$32,567.
+\item \textbf{Poverty rate}: 16.9\% (non-food deserts) vs 24.0\% (food deserts); +7.1 percentage point difference.
+\item \textbf{Racial composition}: Food deserts have 55.1\% Black population vs 28.8\% in non-food deserts.
+\item \textbf{Vehicle access}: 35.2\% of households in high-poverty clusters (Cluster 0) lack vehicles vs 7.5\% in affluent clusters (Cluster 1).
+\item \textbf{Broadband adoption}: Median 78.3\% across Cook County; food desert tracts average 68.9\%.
+\end{itemize}
+
+\subsection{Data Limitations and Reflections}
+
+\paragraph{Spatial Granularity.}
+Census tract aggregation (avg. 4,000 residents) obscures within-tract variation. Affluent neighborhoods adjacent to food deserts within the same tract are indistinguishable. Block-group or parcel-level data would improve precision but is unavailable in USDA atlas.
+
+\paragraph{Causality vs Correlation.}
+Cross-sectional data precludes causal inference. For example, does SNAP intensity cause food deserts, or do food deserts increase SNAP enrollment? Longitudinal analysis (2015--2019 paired tracts, H3) provides suggestive evidence of widening income gaps, but omitted variables (gentrification, policy changes, COVID-19 pandemic effects on 2025 SNAP) confound interpretation.
+
+\paragraph{Proxy Limitations.}
+Absence of direct delivery service data forced reliance on proxies: SNAP intensity for affordability, broadband adoption for digital access, grocery store counts for physical access. These proxies may not capture delivery pricing, digital literacy barriers, or transit accessibility. Future work should integrate proprietary delivery service APIs or survey data on household delivery usage.
+
+\paragraph{Temporal Stability Assumption.}
+Treating 2019 food desert boundaries as stable through 2025 for SNAP projection introduces error if store openings/closures altered access. The Chicago grocery dataset's lack of historical closure records prevented validation of this assumption.
+
+\paragraph{Class Imbalance.}
+Severe imbalance (51 positives vs 1,263 negatives) necessitates careful model evaluation. Standard accuracy is misleading; we prioritize recall (catching at-risk tracts) and ROC-AUC (discrimination ability). SMOTE oversampling in H5 introduces synthetic data points, risking overfitting if minority-class neighborhoods have unique spatial structures not captured by interpolation.
+
+\subsection{Data Availability}
+
+All cleaned datasets, merging scripts, and preprocessing notebooks are available in the project repository:
+\begin{itemize}
+\item \textbf{Repository}: \url{https://github.com/krishna-2009/Food-Delivery-as-a-Tool-Against-Food-Deserts}
+\item \textbf{Cleaned data}: \texttt{data/chicago\_food\_access\_merged.csv} (1,284 rows, 160 features), \texttt{data/chicago\_fooddeserts\_geo.geojson} (geospatial layer).
+\item \textbf{Raw data sources}: Links to USDA, Census, and Chicago Data Portal in \texttt{data/README.md}.
+\item \textbf{Cleaning scripts}: \texttt{data\_cleaning/merge\_atlas\_broadband.py}, \texttt{data\_cleaning/snap\_projection.py}, \texttt{data\_cleaning/inflation\_adjustment.py}.
+\item \textbf{Notebooks}: \texttt{H1.ipynb}--\texttt{H5.ipynb} contain inline data loading and preprocessing cells.
+\end{itemize}
+
+Due to file size constraints, raw shapefiles (9.3 MB) and SNAP Excel files are hosted externally; see repository \texttt{data/README.md} for download instructions and checksums.
+
+
+
+
+\section{Visualizations \& Exploratory Analysis}
+
+\subsection*{Nishita (H1: Spatial Clustering)}
+\begin{figure}[H]\centering\includegraphics[width=0.9\textwidth]{figs/h1-1.png}\caption{Cook County heat maps: food desert status, low income, poverty rate. Source: H1 notebook, VISUALIZATION 1.}\label{fig:nishita1}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=0.8\textwidth]{figs/h1-2.png}\caption{Income vs poverty scatter with trend lines; boxplots of median income by food desert. Source: H1 notebook, VISUALIZATION 2.}\label{fig:nishita2}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=0.8\textwidth]{figs/h1-10.png}\caption{K-Means cluster map of tracts (K=4) and feature boxplots by cluster. Source: H1 notebook, clustering section.}\label{fig:nishita3}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=0.8\textwidth]{figs/h1-11.png}\caption{K-Means cluster map of tracts (K=4) and feature boxplots by cluster. Source: H1 notebook, clustering section.}\label{fig:nishita3}\end{figure}
+
+\subsection*{Anand (H2: Affordability \& Delivery)}
+\begin{figure}[H]\centering\includegraphics[width=0.75\textwidth]{figs/h2-2.png}\caption{Median income vs SNAP intensity scatter, colored by food desert. Source: H2 notebook affordability scatter.}\label{fig:Anand1}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=0.75\textwidth]{figs/h2-5.png}\caption{Correlation heatmap of affordability features vs food desert. Source: H2 notebook correlation block.}\label{fig:Anand2}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=0.75\textwidth]{figs/h2-9.png}\caption{ROC curves and model comparison (RF, LR, GBM, SVM, NB). Source: H2 model performance plots.}\label{fig:Anand3}\end{figure}
+
+\subsection*{Krishna (H3: Income Disparity)}
+\begin{figure}[H]\centering\includegraphics[width=0.8\textwidth]{figs/h3-1.png}\caption{Income change 2015--2019 (nominal and real) across tracts. Source: H3 income trajectory plot.}\label{fig:krishna1}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=0.8\textwidth]{figs/h3-2.png}\caption{Classification metrics (accuracy, precision, recall, F1, ROC-AUC) for LR, RF, GBM predicting 2019 food deserts. Source: H3 ML Analysis 1.}\label{fig:krishna2}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=0.8\textwidth]{figs/h3-3.png}\caption{Regression actual vs predicted real income change; RMSE/R\textsuperscript{2} comparison across models. Source: H3 ML Analysis 2.}\label{fig:krishna3}\end{figure}
+
+\subsection*{Kaushik (H4: Broadband Adoption Gaps)}
+\begin{figure}[H]\centering\includegraphics[width=0.75\textwidth]{figs/h4-4.png}\caption{Broadband adoption by tract merged with food desert status. Source: H4 broadband merge section.}\label{fig:kaushik1}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=0.75\textwidth]{figs/h4-3.png}\caption{Logistic regression odds ratios: seniors, poverty, no vehicle predicting digital barrier. Source: H4 logit output.}\label{fig:kaushik2}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=0.75\textwidth]{figs/h4-9.png}\caption{Interaction plot: senior share vs predicted barrier probability at low/high urbanicity. Source: H4 interaction curves.}\label{fig:kaushik3}\end{figure}
+
+\subsection*{Dhwani (H5: Digital Barrier Index)}
+\begin{figure}[H]\centering\includegraphics[width=0.8\textwidth]{figs/h5-1.png}\caption{Correlation matrix: Digital Barrier Index, broadband, SNAP, seniors, no-vehicle vs food desert. Source: H5 EDA.}\label{fig:Dhwani1}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=0.8\textwidth]{figs/h5-2.png}\caption{Component means by food desert status (broadband inverted, seniors, SNAP, no-vehicle). Source: H5 component plot.}\label{fig:Dhwani2}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=0.8\textwidth]{figs/h5-8.png}\caption{Precision-recall and threshold sweep for SMOTE-balanced logistic/RF predicting food deserts. Source: H5 threshold and PR plots.}\label{fig:Dhwani3}\end{figure}
+
+\section{Methods / ML \& Statistical Analyses}
+\subsection*{Method -- Nishita}
+Geospatial clustering and classification using Cook County tracts; features: poverty rate, income, demographic shares, vehicle access. Models: logistic regression (reporting accuracy 0.97, ROC-AUC 0.85 but zero recall on positives), K-Means (K=4) with elbow method (WCSS knee at K=3–4). Inputs/outputs and cell references: H1 data prep and VISUALIZATION sections.
+
+\subsection*{Method -- Anand}
+Affordability-focused classifiers. Features: poverty rate, median family income, SNAP intensity (2019, projected 2025), demographic shares, vulnerability index. Models: Random Forest, Logistic Regression, Gradient Boosting, SVM, Naive Bayes with stratified splits and standardized features where needed; evaluation via Accuracy, ROC-AUC, Precision/Recall, confusion matrix, ROC curves. Balanced class weights used; see H2 model comparison plots and printed metrics.
+
+\subsection*{Method -- Krishna}
+Income-change analysis across 2015/2019 atlas with inflation adjustment (8\% CPI). Classification: LR, RF, GBM predicting 2019 food desert using 2015 income/SNAP and change features; cross-validated F1 and ROC-AUC. Regression: Linear, Random Forest Regressor, Gradient Boosting Regressor predicting real income change percent; baseline mean vs model RMSE/R\textsuperscript{2}. See H3 ML Analysis 1 and 2 cells.
+
+\subsection*{Method -- Kaushik}
+Broadband adoption from ACS B28002 joined to atlas (GEOID). Derived barrier flag (food desert \& low-income \& below-median broadband). Logistic regression with standardized predictors: pct seniors, poverty rate, pct no vehicle, low-income flag/urban share interactions. Outputs: coefficient tables, odds ratios ($\exp$ coefficients), predicted curves by senior share and urbanicity. See H4 logit and interaction sections.
+
+\subsection*{Method -- Dhwani}
+Digital Barrier Index = $-z$(BroadbandShare) + $z$(SeniorShare) + $z$(SNAPShare) + $z$(PctNoVehicle). Models: Logistic Regression (balanced), Random Forest with SMOTE oversampling; threshold tuning for optimal F1; PR and ROC evaluation; feature importance highlighting SNAP×Poverty and Senior×NoVehicle interactions. Cross-validated ROC-AUC with 5-fold CV; statistical test vs random (t-test). See H5 ML sections.
+
+\section{Results \& Hypothesis Testing}
+\paragraph{H1 (Spatial Clustering).} Heat maps (Fig.~\ref{fig:nishita1}) show concentrated deserts on South and West sides; K-Means clusters align with poverty gradients (Cluster 2 high-poverty). Logistic model high accuracy but zero recall indicates imbalance; spatial evidence supports clustering.
+
+\paragraph{H2 (Affordability).} Correlations (Fig.~\ref{fig:Anand2}) and scatter (Fig.~\ref{fig:Anand1}) show SNAP intensity and low income strongly associated with food desert flag. RF/GBM achieve highest ROC-AUC (per H2 notebook outputs), confusion matrix highlights improved recall with class balancing. Supports affordability barrier; delivery alone insufficient without cost relief.
+
+\paragraph{H3 (Income Disparity).} Real income change analysis shows widening gap; regression models outperform baseline on RMSE/R\textsuperscript{2} (Fig.~\ref{fig:krishna3}). Classification shows food desert proportion higher in tracts with negative real income change. Hypothesis supported: income decline tracks reduced access.
+
+\paragraph{H4 (Broadband Adoption).} Logistic odds (Fig.~\ref{fig:kaushik2}) indicate senior share and poverty significantly increase barrier probability; broadband adoption median split identifies low-adoption tracts overlapping deserts. Interaction plot (Fig.~\ref{fig:kaushik3}) shows senior effect amplified in less urban tracts. Supports adoption gaps—not availability—drive digital access barriers.
+
+\paragraph{H5 (Digital Barrier Index).} Digital Barrier Index positively correlated with food desert flag (Fig.~\ref{fig:Dhwani1}); component differences (Fig.~\ref{fig:Dhwani2}) highlight broadband and SNAP contributions. SMOTE-balanced models yield improved recall; PR curve (Fig.~\ref{fig:Dhwani3}) and threshold tuning demonstrate lift over prevalence. Hypothesis supported.
+
+\section{Additional Work}
+\begin{itemize}
+    \item \textbf{Digital Barrier Index} (H5) as composite deliverable beyond base ML/visuals.
+    \item \textbf{Threshold optimization} for imbalanced classification (H5) and projection of SNAP growth to 2025 (H2) as extended evaluation.
+    \item \textbf{Clustering robustness} via elbow and multi-feature cluster characterization (H1, H5).
+\end{itemize}
+
+\section{Discussion}
+\textbf{Limitations.} Class imbalance reduced positive recall (H1 logistic). Some data paths (e.g., cleaned CSVs, presentation emails) unavailable in repository snapshot. SNAP projections assume uniform growth. Broadband API keys required; missing keys hinder reproducibility unless provided. Visual placeholders require exporting plots from notebooks.
+
+\textbf{Biases.} Census/ACS sampling error, potential geocoding mismatch, and historical redlining effects not explicitly modeled. Digital adoption may proxy income, conflating effects.
+
+\textbf{Implications.} Target interventions in South/West clusters with high poverty, low broadband adoption, and high SNAP dependence. Digital subsidies and senior-focused onboarding may complement grocery delivery.
+
+\section{Conclusion}
+Food deserts in Chicago are spatially clustered, affordability-constrained, and amplified by digital adoption gaps. Integrating geospatial, affordability, income trajectory, and digital barrier analyses yields consistent evidence across five hypotheses. Future work: fairness-aware models, causal inference for delivery services, and live dashboards for city stakeholders.
+
+\section*{References}
+\bibliographystyle{plain}
+\bibliography{references}
+
+\appendix
+\section{Reproducibility Checklist}
+\begin{itemize}
+    \item Environment: Python 3.10+; key packages: pandas, numpy, matplotlib, seaborn, geopandas, folium, plotly, scikit-learn, statsmodels, imblearn, shapely.
+    \item Data paths: \texttt{Grocery store.csv}; \texttt{tl\_2020\_17\_tract.shp} (and .dbf/.shx/.prj); Food Access Atlas 2015/2019 CSV/XLSX; SNAP Jan 2015/2019/2025 Excel; ACS broadband via API.
+    \item Notebook steps: run H1--H5 notebooks in order; for each figure, execute the plotting cells named in VISUALIZATION or ML sections; save outputs to \texttt{figs/} with filenames listed above.
+    \item Commands (example, assuming data present): \texttt{pip install pandas numpy matplotlib seaborn geopandas folium plotly scikit-learn statsmodels imbalanced-learn shapely}; run notebooks; then compile LaTeX as noted.
+    \item Randomness: set seeds where provided (e.g., random\_state=42); stratified splits used.
+\end{itemize}
+
+\section{Author Contributions}
+\begin{itemize}
+    \item \textbf{Nishita}: Geospatial heat maps; income vs poverty visual; K-Means clustering; logistic regression baseline (H1); Figures \ref{fig:nishita1}--\ref{fig:nishita3}.
+    \item \textbf{Anand}: SNAP/intensity affordability analysis; model comparison (RF/LR/GBM/SVM/NB); correlation and ROC visuals; Figures \ref{fig:Anand1}--\ref{fig:Anand3}.
+    \item \textbf{Krishna}: Income change over time; classification and regression models; income trajectory visualizations; Figures \ref{fig:krishna1}--\ref{fig:krishna3}.
+    \item \textbf{Kaushik}: Broadband adoption merge; logistic odds and interaction analysis; barrier probability curves; Figures \ref{fig:kaushik1}--\ref{fig:kaushik3}.
+    \item \textbf{Anand}: Digital Barrier Index construction; SMOTE-balanced models; threshold tuning and PR analysis; Figures \ref{fig:Anand1}--\ref{fig:Anand3}.
+\end{itemize}
+
+\section{Appendix: Data, Code, Repository}
+\begin{itemize}
+    \item Cleaned data: upload to \texttt{data/} (not present in snapshot). If size too large, include pointers to USDA/ACS/City portals.
+    \item Scripts: reuse notebook cells; place any cleaning scripts under \texttt{data\_cleaning/}.
+    \item Notebooks: \texttt{H1.ipynb}--\texttt{H5.ipynb} (cited above).
+    \item Repository URL: \textit{https://github.com/krishna-2009/Food-Delivery-as-a-Tool-Against-Food-Deserts}.
+    \item Figures: export from notebooks to \texttt{figs/} with names listed in preamble comment.
+\end{itemize}
+
+\end{document}
